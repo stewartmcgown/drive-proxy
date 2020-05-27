@@ -1,0 +1,39 @@
+{
+  "name": "@stewartmcgown/drive-proxy",
+  "version": "0.0.1",
+  "description": "Proxy your Google Drive to the web",
+  "devDependencies": {
+    "@types/jest": "~25.2.1",
+    "@types/node": "^14.0.5",
+    "@typescript-eslint/eslint-plugin": "~2.32.0",
+    "@typescript-eslint/parser": "~2.32.0",
+    "eslint": "~7.0.0",
+    "eslint-config-prettier": "~6.11.0",
+    "eslint-plugin-jest": "~23.10.0",
+    "jest": "~25.2.7",
+    "nodemon": "^2.0.4",
+    "prettier": "~2.0.5",
+    "rimraf": "~3.0.2",
+    "ts-jest": "~25.5.1",
+    "ts-node": "^8.10.1",
+    "tsutils": "~3.17.0",
+    "typescript": "~3.8.3"
+  },
+  "scripts": {
+    "clean": "rimraf coverage build tmp",
+    "build": "tsc -p tsconfig.release.json",
+    "build:watch": "tsc -w -p tsconfig.release.json",
+    "lint": "eslint . --ext .ts,.tsx",
+    "start:dev": "nodemon --exec ts-node src/main.ts",
+    "test": "jest --coverage",
+    "test:watch": "jest --watch"
+  },
+  "author": "Jakub Synowiec <github@jakubsynowiec.info>",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "dotenv": "^8.2.0",
+    "googleapis": "^51.0.0",
+    "tslib": "~1.11.2",
+    "turbo-http": "^0.3.2"
+  }
+}
