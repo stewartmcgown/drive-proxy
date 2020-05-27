@@ -20,6 +20,7 @@ dotenv.config();
 
       stream.on('end', () => res.end())
     } catch (e) {
+      console.error(e)
       let buffer =  Buffer.from('404');
       res.statuscode = 404
       res.setHeader('Content-Length', buffer.length)
