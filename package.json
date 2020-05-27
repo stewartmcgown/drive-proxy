@@ -24,6 +24,7 @@
     "build": "tsc -p tsconfig.release.json",
     "build:watch": "tsc -w -p tsconfig.release.json",
     "lint": "eslint . --ext .ts,.tsx",
+    "start": "node build/src/main.js",
     "start:dev": "nodemon --exec ts-node src/main.ts",
     "test": "jest --coverage",
     "test:watch": "jest --watch"
