@@ -1,6 +1,4 @@
-import * as turbo from 'turbo-http'
 import { resolvePath } from '../drive';
-import * as dotenv from 'dotenv'
 
 interface Req {
   method: string;
