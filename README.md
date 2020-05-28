@@ -6,3 +6,7 @@
 Copy .env.example to .env and fill it in. The folder ID should be one of your Drive folders, the private key should be your service account JSON file base64 encoded.
 
 You can create your service account in the Google Developer Console. Make sure you share the folder you plan to use for hosting with the service account.
+
+## Deploy with Vercel
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/project?template=https://github.com/stewartmcgown/drive-proxy/tree/master)

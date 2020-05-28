@@ -59,24 +59,32 @@ export const resolvePath = async (path: string, res): Promise<Stream> => {
 
   const cached = get(path);
   const parts = path.split('/');
-  let file = cached ?? (await files.get({
-    fileId: process.env.ROOT_FOLDER_ID,
-    fields: 'id,name,mimeType,size',
-  })).data;
+  let file =
+    cached ??
+    (
+      await files.get({
+        fileId: process.env.ROOT_FOLDER_ID,
+        fields: 'id,name,mimeType,size',
+      })
+    ).data;
 
   let resolves = 0;
 
   if (path !== '' && !cached) {
     for (let i = 0; i < parts.length; i++) {
-        const part = decodeURI(parts[i])
-        const subpath = parts.slice(0, i + 1).join('/');
-        const cachedPart = get(subpath);
+      const part = decodeURI(parts[i]);
+      const subpath = parts.slice(0, i + 1).join('/');
+      const cachedPart = get(subpath);
 
-      const match = cachedPart ?? (await files.list({
-        q: `'${file.id}' in parents and name = '${part}'`,
-        pageSize: 1000,
-        fields: 'files(id,mimeType,name,size)',
-      })).data.files[0];
+      const match =
+        cachedPart ??
+        (
+          await files.list({
+            q: `'${file.id}' in parents and name = '${part}'`,
+            pageSize: 1000,
+            fields: 'files(id,mimeType,name,size)',
+          })
+        ).data.files[0];
 
       if (!match) throw new Error('404 Not Found');
 
@@ -102,8 +110,8 @@ export const resolvePath = async (path: string, res): Promise<Stream> => {
     add(path, file);
   }
 
-  res.setHeader('X-Drive-Cache-Status', cached ? 'HIT' : 'MISS')
-    res.setHeader('X-Drive-API-Calls', resolves)
+  res.setHeader('X-Drive-Cache-Status', cached ? 'HIT' : 'MISS');
+  res.setHeader('X-Drive-API-Calls', resolves);
 
   if (file.mimeType === 'application/vnd.google-apps.folder') {
     const result = await files.list({
@@ -114,7 +122,7 @@ export const resolvePath = async (path: string, res): Promise<Stream> => {
 
     return Readable.from(
       `<h1>/${path}</h1><table><thead><th>Name</th><th>Modified</th><th>Size</th></thead><tbody>` +
-        (path !== '/' ? '<tr><td><a href=""/>..</a></td></tr>' : '')+
+        (path !== '/' ? '<tr><td><a href=""/>..</a></td></tr>' : '') +
         result.data.files
           .map(
             (f) =>
@@ -126,9 +134,8 @@ export const resolvePath = async (path: string, res): Promise<Stream> => {
         '</tbody></table>',
     );
   } else {
-    res.setHeader('Content-Type', file.mimeType)
-    res.setHeader('Content-Length', file.size)
-    
+    res.setHeader('Content-Type', file.mimeType);
+    res.setHeader('Content-Length', file.size);
 
     const stream = await files.get(
       {
