@@ -2,23 +2,38 @@ import { google } from 'googleapis';
 import { Stream, Readable } from 'stream';
 import { get, add } from './cache';
 
+const cachedJWTClient = {
+  jwtClient: null,
+  created: new Date(0),
+};
+
 export const getAuth = async (): Promise<
   InstanceType<typeof google.auth.JWT>
 > => {
-  const privatekey = JSON.parse(
-    Buffer.from(process.env.GOOGLE_PRIVATE_KEY, 'base64').toString('ascii'),
-  );
+  if (
+    !cachedJWTClient.jwtClient ||
+    Date.now() - cachedJWTClient.created.getTime() > 60000
+  ) {
+    const privatekey = JSON.parse(
+      Buffer.from(process.env.GOOGLE_PRIVATE_KEY, 'base64').toString('ascii'),
+    );
 
-  const jwtClient = new google.auth.JWT(
-    privatekey.client_email,
-    null,
-    privatekey.private_key,
-    ['https://www.googleapis.com/auth/drive'],
-  );
+    const jwtClient = new google.auth.JWT(
+      privatekey.client_email,
+      null,
+      privatekey.private_key,
+      ['https://www.googleapis.com/auth/drive'],
+    );
 
-  await jwtClient.authorize();
+    await jwtClient.authorize();
 
-  return jwtClient;
+    cachedJWTClient.created = new Date();
+    cachedJWTClient.jwtClient = jwtClient;
+
+    return jwtClient;
+  }
+
+  return cachedJWTClient.jwtClient;
 };
 
 const humanFileSize = (bytes: number, si = false, dp = 1): string => {
@@ -64,6 +79,8 @@ export const resolvePath = async (path: string, res): Promise<Stream> => {
     ).data;
 
   let resolves = cached ? 0 : 1;
+
+  console.log(path);
 
   if (path !== '' && !cached) {
     // Attempt to find a cached entrypoint

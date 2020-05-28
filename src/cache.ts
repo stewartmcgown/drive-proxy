@@ -13,6 +13,7 @@ const MAX_AGE = process.env.CACHE_MAX_AGE ?? 10000;
 const cache: { [path: string]: CacheEntry } = {};
 
 export const get = (path: string): DriveV3.Schema$File | null => {
+  if (!path) return null;
   const entry = cache[path];
 
   if (!entry) {
