@@ -1,3 +1,8 @@
 {
-  "routes": [{ "src": "/(.*)", "dest": "/api/index.ts" }]
+  "routes": [{ "src": "/(.*)", "dest": "/api/index.ts" }],
+  "build": {
+    "env": {
+      "NODEJS_HELPERS": "0"
+    }
+  }
 }
