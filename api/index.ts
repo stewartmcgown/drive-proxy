@@ -1,11 +1,12 @@
 import { resolvePath } from '../src/drive';
+import * as turbo from 'turbo-http';
 
 interface Req {
   method: string;
   url: string;
 }
 
-export default async function handler(req: Req, res): Promise<void> {
+export async function handler(req: Req, res): Promise<void> {
   try {
     const stream = await resolvePath(req.url.slice(1), res);
     stream.on('data', (d) => {
@@ -21,3 +22,11 @@ export default async function handler(req: Req, res): Promise<void> {
     res.write(buffer);
   }
 }
+
+/**
+ * For Vercel
+ */
+export default (): void => {
+  const server = turbo.createServer(handler);
+  server.listen(3111);
+};

@@ -1,6 +1,6 @@
 import * as turbo from 'turbo-http';
 import * as dotenv from 'dotenv';
-import handler from '../api';
+import { handler } from '../api';
 
 dotenv.config();
 
