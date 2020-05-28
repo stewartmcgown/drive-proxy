@@ -1,7 +1,7 @@
-import { drive_v3 } from 'googleapis';
+import { drive_v3 as DriveV3 } from 'googleapis';
 
 interface CacheEntry {
-  file: drive_v3.Schema$File;
+  file: DriveV3.Schema$File;
   created: Date;
 }
 
@@ -12,7 +12,7 @@ const MAX_AGE = process.env.CACHE_MAX_AGE ?? 10000;
  */
 const cache: { [path: string]: CacheEntry } = {};
 
-export const get = (path: string): drive_v3.Schema$File | null => {
+export const get = (path: string): DriveV3.Schema$File | null => {
   const entry = cache[path];
 
   console.log(entry);
@@ -26,7 +26,7 @@ export const get = (path: string): drive_v3.Schema$File | null => {
   return entry.file;
 };
 
-export const add = (path: string, file: drive_v3.Schema$File) => {
+export const add = (path: string, file: DriveV3.Schema$File): void => {
   cache[path] = {
     file,
     created: new Date(),

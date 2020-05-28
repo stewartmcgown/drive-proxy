@@ -2,7 +2,9 @@ import { google } from 'googleapis';
 import { Stream, Readable } from 'stream';
 import { get, add } from './cache';
 
-export const getAuth = () => {
+export const getAuth = async (): Promise<
+  InstanceType<typeof google.auth.JWT>
+> => {
   const privatekey = JSON.parse(
     Buffer.from(process.env.GOOGLE_PRIVATE_KEY, 'base64').toString('ascii'),
   );
@@ -14,19 +16,12 @@ export const getAuth = () => {
     ['https://www.googleapis.com/auth/drive'],
   );
 
-  jwtClient.authorize((err) => {
-    if (err) {
-      console.error(err);
-      return;
-    } else {
-      console.log('Successfully connected!');
-    }
-  });
+  await jwtClient.authorize();
 
   return jwtClient;
 };
 
-function humanFileSize(bytes, si = false, dp = 1) {
+const humanFileSize = (bytes: number, si = false, dp = 1): string => {
   const thresh = si ? 1000 : 1024;
 
   if (Math.abs(bytes) < thresh) {
@@ -48,7 +43,7 @@ function humanFileSize(bytes, si = false, dp = 1) {
   );
 
   return bytes.toFixed(dp) + ' ' + units[u];
-}
+};
 
 export const resolvePath = async (path: string, res): Promise<Stream> => {
   const files = google.drive('v3').files;
@@ -68,7 +63,7 @@ export const resolvePath = async (path: string, res): Promise<Stream> => {
       })
     ).data;
 
-  let resolves = 0;
+  let resolves = cached ? 0 : 1;
 
   if (path !== '' && !cached) {
     for (let i = 0; i < parts.length; i++) {
@@ -110,6 +105,8 @@ export const resolvePath = async (path: string, res): Promise<Stream> => {
     add(path, file);
   }
 
+  resolves++;
+
   res.setHeader('X-Drive-Cache-Status', cached ? 'HIT' : 'MISS');
   res.setHeader('X-Drive-API-Calls', resolves);
 
@@ -126,9 +123,11 @@ export const resolvePath = async (path: string, res): Promise<Stream> => {
         result.data.files
           .map(
             (f) =>
-              `<tr><td><a href="/${path}/${f.name}">${f.name}</a></td><td>${
-                f.modifiedTime
-              }</td><td>${f.size ? humanFileSize(f.size) : 0}</td></tr>`,
+              `<tr><td><a href="${
+                path[0] === '/' || path === '' ? path : '/' + path
+              }/${f.name}">${f.name}</a></td><td>${f.modifiedTime}</td><td>${
+                f.size ? humanFileSize(Number.parseInt(f.size, 10)) : 0
+              }</td></tr>`,
           )
           .join(' ') +
         '</tbody></table>',

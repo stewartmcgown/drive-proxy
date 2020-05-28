@@ -5,7 +5,7 @@ interface Req {
   url: string;
 }
 
-export default async function handler(req: Req, res) {
+export default async function handler(req: Req, res): Promise<void> {
   try {
     const stream = await resolvePath(req.url.slice(1), res);
     stream.on('data', (d) => {
@@ -15,7 +15,7 @@ export default async function handler(req: Req, res) {
     stream.on('end', () => res.end());
   } catch (e) {
     console.error(e);
-    let buffer = Buffer.from('404');
+    const buffer = Buffer.from('404');
     res.statuscode = 404;
     res.setHeader('Content-Length', buffer.length);
     res.write(buffer);
