@@ -7,7 +7,8 @@
     "verbose": true,
     "watch": [
       "src/",
-      "__tests__"
+      "__tests__",
+      "api/"
     ],
     "env": {
       "NODE_ENV": "development"

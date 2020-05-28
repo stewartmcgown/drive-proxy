@@ -8,8 +8,7 @@ interface Req {
 export default async function handler(req: Req, res) {
    
   try {
-    const stream = await resolvePath(req.url.slice(1));
-
+    const stream = await resolvePath(req.url.slice(1), res);
     stream.on('data', d => {
       res.write(Buffer.from(d));
     })

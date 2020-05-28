@@ -1,5 +1,6 @@
 import { google } from 'googleapis';
 import { Stream, Readable } from 'stream';
+import { get, add } from './cache';
 
 export const getAuth = () => {
   const privatekey = JSON.parse(
@@ -49,32 +50,40 @@ function humanFileSize(bytes, si = false, dp = 1) {
   return bytes.toFixed(dp) + ' ' + units[u];
 }
 
-export const resolvePath = async (path: string): Promise<Stream> => {
+export const resolvePath = async (path: string, res): Promise<Stream> => {
   const files = google.drive('v3').files;
   const auth = await getAuth();
   google.options({
     auth,
   });
 
+  const cached = get(path);
   const parts = path.split('/');
-  let { data: file } = await files.get({
+  let file = cached ?? (await files.get({
     fileId: process.env.ROOT_FOLDER_ID,
     fields: 'id,name,mimeType,size',
-  });
-  if (path !== '') {
+  })).data;
+
+  let resolves = 0;
+
+  if (path !== '' && !cached) {
     for (let i = 0; i < parts.length; i++) {
         const part = decodeURI(parts[i])
-        console.log(part)
-      const result = await files.list({
+        const subpath = parts.slice(0, i + 1).join('/');
+        const cachedPart = get(subpath);
+
+      const match = cachedPart ?? (await files.list({
         q: `'${file.id}' in parents and name = '${part}'`,
         pageSize: 1000,
         fields: 'files(id,mimeType,name,size)',
-      });
+      })).data.files[0];
 
-      const match = result.data.files[0];
-
-      console.log(match)
       if (!match) throw new Error('404 Not Found');
+
+      if (!cachedPart) {
+        resolves++;
+        add(subpath, cachedPart);
+      }
 
       if (i + 1 < parts.length) {
         if (match.mimeType === 'application/vnd.google-apps.folder') {
@@ -89,6 +98,13 @@ export const resolvePath = async (path: string): Promise<Stream> => {
     }
   }
 
+  if (!cached) {
+    add(path, file);
+  }
+
+  res.setHeader('X-Drive-Cache-Status', cached ? 'HIT' : 'MISS')
+    res.setHeader('X-Drive-API-Calls', resolves)
+
   if (file.mimeType === 'application/vnd.google-apps.folder') {
     const result = await files.list({
       q: `'${file.id}' in parents`,
@@ -97,12 +113,12 @@ export const resolvePath = async (path: string): Promise<Stream> => {
     });
 
     return Readable.from(
-      `<h1>/${path}</h1><table><thead><th>Name</th><th>Modifier</th><th>Size</th></thead><tbody>` +
-        (path !== '/' ? '<tr><td><a href=".."/>..</a></td></tr>' : '')+
+      `<h1>/${path}</h1><table><thead><th>Name</th><th>Modified</th><th>Size</th></thead><tbody>` +
+        (path !== '/' ? '<tr><td><a href=""/>..</a></td></tr>' : '')+
         result.data.files
           .map(
             (f) =>
-              `<tr><td><a href="${path}/${f.name}">${f.name}</a></td><td>${
+              `<tr><td><a href="/${path}/${f.name}">${f.name}</a></td><td>${
                 f.modifiedTime
               }</td><td>${f.size ? humanFileSize(f.size) : 0}</td></tr>`,
           )
@@ -110,7 +126,11 @@ export const resolvePath = async (path: string): Promise<Stream> => {
         '</tbody></table>',
     );
   } else {
-    const res = await files.get(
+    res.setHeader('Content-Type', file.mimeType)
+    res.setHeader('Content-Length', file.size)
+    
+
+    const stream = await files.get(
       {
         fileId: file.id,
         alt: 'media',
@@ -118,6 +138,6 @@ export const resolvePath = async (path: string): Promise<Stream> => {
       { responseType: 'stream' },
     );
 
-    return res.data as Stream;
+    return stream.data as Stream;
   }
 };
