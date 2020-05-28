@@ -1,13 +1,11 @@
 import { resolvePath } from '../src/drive';
-import * as turbo from 'turbo-http';
-import { Http2Server } from 'http2';
 
 interface Req {
   method: string;
   url: string;
 }
 
-export async function handler(req: Req, res): Promise<void> {
+export default async function handler(req: Req, res): Promise<void> {
   try {
     const stream = await resolvePath(req.url.slice(1), res);
     stream.on('data', (d) => {
@@ -23,8 +21,3 @@ export async function handler(req: Req, res): Promise<void> {
     res.write(buffer);
   }
 }
-
-/**
- * For Vercel
- */
-export default (): Http2Server => turbo.createServer(handler);
