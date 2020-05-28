@@ -15,8 +15,12 @@ const cache: { [path: string]: CacheEntry } = {};
 export const get = (path: string): DriveV3.Schema$File | null => {
   const entry = cache[path];
 
-  console.log(entry);
-  if (!entry) return null;
+  if (!entry) {
+    console.log(`Cache MISS for ${path}`);
+    return null;
+  }
+
+  console.log(`Cache HIT for ${path} | id: ${entry.file.id}`);
 
   if (Date.now() - entry.created.getTime() > MAX_AGE) {
     delete cache[path];
@@ -27,8 +31,9 @@ export const get = (path: string): DriveV3.Schema$File | null => {
 };
 
 export const add = (path: string, file: DriveV3.Schema$File): void => {
-  cache[path] = {
-    file,
-    created: new Date(),
-  };
+  if (path && file)
+    cache[path] = {
+      file,
+      created: new Date(),
+    };
 };

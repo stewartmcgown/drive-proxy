@@ -66,7 +66,23 @@ export const resolvePath = async (path: string, res): Promise<Stream> => {
   let resolves = cached ? 0 : 1;
 
   if (path !== '' && !cached) {
-    for (let i = 0; i < parts.length; i++) {
+    // Attempt to find a cached entrypoint
+    let i = parts.length;
+    for (; i > 0; i--) {
+      const subpath = parts.slice(0, i + 1).join('/');
+      const cachedPart = get(subpath);
+      if (cachedPart) {
+        file = cachedPart;
+        break;
+      }
+    }
+
+    if (file) {
+      console.log(`Cache matched ${i + 1}/${parts.length} parts of path`);
+    }
+
+    // Didn't find deeply nested
+    for (; i < parts.length; i++) {
       const part = decodeURI(parts[i]);
       const subpath = parts.slice(0, i + 1).join('/');
       const cachedPart = get(subpath);
