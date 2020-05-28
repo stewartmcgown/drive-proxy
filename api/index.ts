@@ -1,5 +1,6 @@
 import { resolvePath } from '../src/drive';
 import * as turbo from 'turbo-http';
+import { Http2Server } from 'http2';
 
 interface Req {
   method: string;
@@ -26,7 +27,4 @@ export async function handler(req: Req, res): Promise<void> {
 /**
  * For Vercel
  */
-export default (): void => {
-  const server = turbo.createServer(handler);
-  server.listen(3111);
-};
+export default (): Http2Server => turbo.createServer(handler);
