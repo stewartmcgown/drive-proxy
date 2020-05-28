@@ -1,4 +1,4 @@
-import { resolvePath } from '../drive';
+import { resolvePath } from '../src/drive';
 
 interface Req {
   method: string;
