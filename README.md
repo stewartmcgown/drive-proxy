@@ -7,9 +7,11 @@ Copy .env.example to .env and fill it in. The folder ID should be one of your Dr
 
 You can create your service account in the Google Developer Console. Make sure you share the folder you plan to use for hosting with the service account.
 
-Run `yarn` and then `yarn start`
+Run `yarn` and then `yarn start`.
 
 ### Deploy with Vercel
+
+Deploying as a serverless function is a bit annoying, as you lose the ability to cache paths in memory
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/project?template=https://github.com/stewartmcgown/drive-proxy/tree/master)
 
