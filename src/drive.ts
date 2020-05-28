@@ -63,16 +63,17 @@ export const resolvePath = async (path: string): Promise<Stream> => {
   });
   if (path !== '') {
     for (let i = 0; i < parts.length; i++) {
+        const part = decodeURI(parts[i])
+        console.log(part)
       const result = await files.list({
-        q: `'${file.id}' in parents and name = '${parts[i]}'`,
+        q: `'${file.id}' in parents and name = '${part}'`,
         pageSize: 1000,
         fields: 'files(id,mimeType,name,size)',
       });
 
       const match = result.data.files[0];
 
-      console.log(match);
-
+      console.log(match)
       if (!match) throw new Error('404 Not Found');
 
       if (i + 1 < parts.length) {
@@ -97,12 +98,13 @@ export const resolvePath = async (path: string): Promise<Stream> => {
 
     return Readable.from(
       `<h1>/${path}</h1><table><thead><th>Name</th><th>Modifier</th><th>Size</th></thead><tbody>` +
+        (path !== '/' ? '<tr><td><a href=".."/>..</a></td></tr>' : '')+
         result.data.files
           .map(
             (f) =>
-              `<tr><td><a href="/${path}/${f.name}">${f.name}</a></td><td>${
+              `<tr><td><a href="${path}/${f.name}">${f.name}</a></td><td>${
                 f.modifiedTime
-              }</td><td>${humanFileSize(f.size)}</td></tr>`,
+              }</td><td>${f.size ? humanFileSize(f.size) : 0}</td></tr>`,
           )
           .join(' ') +
         '</tbody></table>',
