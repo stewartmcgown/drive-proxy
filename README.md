@@ -11,8 +11,6 @@ Run `yarn` and then `yarn start`.
 
 ### Deploy with Vercel
 
-Deploying as a serverless function is a bit annoying, as you lose the ability to cache paths in memory
-
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/project?template=https://github.com/stewartmcgown/drive-proxy/tree/master)
 
 ## Headers
