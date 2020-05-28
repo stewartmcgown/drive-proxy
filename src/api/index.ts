@@ -5,7 +5,7 @@ interface Req {
   url: string;
 }
 
-export async function handler(req: Req, res) {
+export default async function handler(req: Req, res) {
    
   try {
     const stream = await resolvePath(req.url.slice(1));
@@ -25,7 +25,5 @@ export async function handler(req: Req, res) {
 
   
 }
-
-module.exports = handler;
 
 
