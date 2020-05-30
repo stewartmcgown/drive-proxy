@@ -10,6 +10,7 @@ export default async function handler(req: Req, res): Promise<void> {
     let path = req.url.slice(1);
     if (path[path.length - 1] === '/') path = path.slice(0, path.length - 1);
     const stream = await resolvePath(path, res);
+
     stream.on('data', (d) => {
       res.write(Buffer.from(d));
     });

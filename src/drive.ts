@@ -1,6 +1,6 @@
 import { google } from 'googleapis';
-import { Stream, Readable } from 'stream';
-import { get, add } from './cache';
+import { Readable, Stream } from 'stream';
+import { add, get } from './cache';
 
 const cachedJWTClient = {
   jwtClient: null,
@@ -14,6 +14,7 @@ export const getAuth = async (): Promise<
     !cachedJWTClient.jwtClient ||
     Date.now() - cachedJWTClient.created.getTime() > 60000
   ) {
+    console.log('[AUTH] Refreshing JWT Client');
     const privatekey = JSON.parse(
       Buffer.from(process.env.GOOGLE_PRIVATE_KEY, 'base64').toString('ascii'),
     );
@@ -29,9 +30,11 @@ export const getAuth = async (): Promise<
 
     cachedJWTClient.created = new Date();
     cachedJWTClient.jwtClient = jwtClient;
-
-    return jwtClient;
   }
+
+  google.options({
+    auth: cachedJWTClient.jwtClient,
+  });
 
   return cachedJWTClient.jwtClient;
 };
@@ -62,12 +65,11 @@ const humanFileSize = (bytes: number, si = false, dp = 1): string => {
 
 export const resolvePath = async (path: string, res): Promise<Stream> => {
   const files = google.drive('v3').files;
-  const auth = await getAuth();
-  google.options({
-    auth,
-  });
+  await getAuth();
 
-  const cached = get(path);
+  let cacheStatus: 'MISS' | 'HIT' | 'PARTIAL-HIT' = 'MISS';
+
+  const cached = get(path)?.file;
   const parts = path.split('/');
   let file =
     cached ??
@@ -80,14 +82,12 @@ export const resolvePath = async (path: string, res): Promise<Stream> => {
 
   let resolves = cached ? 0 : 1;
 
-  console.log(path);
-
   if (path !== '' && !cached) {
     // Attempt to find a cached entrypoint
     let i = parts.length;
     for (; i > 0; i--) {
       const subpath = parts.slice(0, i + 1).join('/');
-      const cachedPart = get(subpath);
+      const cachedPart = get(subpath)?.file;
       if (cachedPart) {
         file = cachedPart;
         break;
@@ -95,7 +95,8 @@ export const resolvePath = async (path: string, res): Promise<Stream> => {
     }
 
     if (file) {
-      console.log(`Cache matched ${i + 1}/${parts.length} parts of path`);
+      cacheStatus = 'PARTIAL-HIT';
+      console.log(`[PARTIAL-HIT] ${i + 1}/${parts.length}`);
     }
 
     // Didn't find deeply nested
@@ -104,21 +105,21 @@ export const resolvePath = async (path: string, res): Promise<Stream> => {
       const subpath = parts.slice(0, i + 1).join('/');
       const cachedPart = get(subpath);
 
-      const match =
-        cachedPart ??
-        (
-          await files.list({
-            q: `'${file.id}' in parents and name = '${part}'`,
-            pageSize: 1000,
-            fields: 'files(id,mimeType,name,size)',
-          })
-        ).data.files[0];
+      const match = cachedPart
+        ? cachedPart.file
+        : (
+            await files.list({
+              q: `'${file.id}' in parents and name = '${part}'`,
+              pageSize: 1000,
+              fields: 'files(id,mimeType,name,size)',
+            })
+          ).data.files[0];
 
       if (!match) throw new Error('404 Not Found');
 
       if (!cachedPart) {
         resolves++;
-        add(subpath, cachedPart);
+        add(subpath, match);
       }
 
       if (i + 1 < parts.length) {
@@ -136,24 +137,36 @@ export const resolvePath = async (path: string, res): Promise<Stream> => {
 
   if (!cached) {
     add(path, file);
+  } else if (!cacheStatus) {
+    cacheStatus = 'HIT';
   }
 
   resolves++;
 
-  res.setHeader('X-Drive-Cache-Status', cached ? 'HIT' : 'MISS');
-  res.setHeader('X-Drive-API-Calls', resolves);
-
   if (file.mimeType === 'application/vnd.google-apps.folder') {
-    const result = await files.list({
-      q: `'${file.id}' in parents`,
-      pageSize: 1000,
-      fields: 'files(id,mimeType,name,size,modifiedTime)',
-    });
+    let result = get(path)?.children;
+
+    if (result) {
+      resolves--;
+      cacheStatus = 'HIT';
+    } else {
+      result = (
+        await files.list({
+          q: `'${file.id}' in parents`,
+          pageSize: 1000,
+          fields: 'files(id,mimeType,name,size,modifiedTime)',
+        })
+      ).data.files;
+      add(path, file, result);
+    }
+
+    res.setHeader('X-Drive-API-Calls', resolves);
+    res.setHeader('X-Drive-Cache-Status', cacheStatus);
 
     return Readable.from(
       `<h1>/${path}</h1><table><thead><th>Name</th><th>Modified</th><th>Size</th></thead><tbody>` +
-        (path !== '/' ? '<tr><td><a href=""/>..</a></td></tr>' : '') +
-        result.data.files
+        (path !== '/' ? '<tr><td><a href=".."/>..</a></td></tr>' : '') +
+        result
           .map(
             (f) =>
               `<tr><td><a href="${
@@ -168,15 +181,50 @@ export const resolvePath = async (path: string, res): Promise<Stream> => {
   } else {
     res.setHeader('Content-Type', file.mimeType);
     res.setHeader('Content-Length', file.size);
+    res.setHeader('X-Drive-API-Calls', resolves);
+    res.setHeader('X-Drive-Cache-Status', cacheStatus);
 
-    const stream = await files.get(
-      {
-        fileId: file.id,
-        alt: 'media',
-      },
-      { responseType: 'stream' },
+    const cachedData = get(path);
+
+    if (cachedData?.data) {
+      resolves--;
+      return Readable.from(cachedData.data);
+    }
+
+    const stream = (
+      await files.get(
+        {
+          fileId: file.id,
+          alt: 'media',
+        },
+        { responseType: 'stream' },
+      )
+    ).data as Stream;
+
+    const fileSize = Number.parseInt(file.size, 10);
+    const CACHE_MAX_FILE_SIZE: number = Number.parseInt(
+      process.env.CACHE_MAX_FILE_SIZE,
+      10,
     );
 
-    return stream.data as Stream;
+    if (fileSize < CACHE_MAX_FILE_SIZE) {
+      const cacheBuffers: Buffer[] = [];
+
+      stream.addListener('data', (d) => cacheBuffers.push(d));
+      stream.addListener('end', () => {
+        add(path, file, null, Buffer.concat(cacheBuffers));
+        console.log(
+          '[CACHE] Committed buffer of size ' + file.size + ' to memory cache',
+        );
+      });
+    } else {
+      console.log(
+        `[CACHE] Refusing to commit buffer of size ${humanFileSize(
+          fileSize,
+        )}. Max is ${humanFileSize(CACHE_MAX_FILE_SIZE)}`,
+      );
+    }
+
+    return stream;
   }
 };
