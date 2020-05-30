@@ -181,15 +181,19 @@ export const resolvePath = async (path: string, res): Promise<Stream> => {
   } else {
     res.setHeader('Content-Type', file.mimeType);
     res.setHeader('Content-Length', file.size);
-    res.setHeader('X-Drive-API-Calls', resolves);
-    res.setHeader('X-Drive-Cache-Status', cacheStatus);
 
     const cachedData = get(path);
 
     if (cachedData?.data) {
       resolves--;
+      cacheStatus = 'HIT';
+      res.setHeader('X-Drive-Cache-Status', cacheStatus);
+      res.setHeader('X-Drive-API-Calls', resolves);
       return Readable.from(cachedData.data);
     }
+
+    res.setHeader('X-Drive-Cache-Status', cacheStatus);
+    res.setHeader('X-Drive-API-Calls', resolves);
 
     const stream = (
       await files.get(
