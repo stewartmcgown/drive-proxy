@@ -1,4 +1,5 @@
-import { drive_v3 as DriveV3 } from 'googleapis';
+import { drive_v3 as DriveV3, drive_v3, google } from 'googleapis';
+import { getAuth } from './auth';
 
 interface CacheEntry {
   file: DriveV3.Schema$File;
@@ -47,3 +48,44 @@ export const add = (
       data,
     };
 };
+export type InvalidateOptions = {
+  // eslint-disable-next-line @typescript-eslint/camelcase
+  [id: string]: drive_v3.Schema$File;
+};
+
+export const invalidate = (entries: InvalidateOptions): void => {
+  Object.entries(cache)
+    .filter(([, entry]) => entries[entry.file.id])
+    .forEach(([path, entry]) => {
+      if (entries[entry.file.id].trashed) {
+        delete cache[path];
+      } else {
+        cache[path].data = null;
+        cache[path].children = null;
+        cache[path].created = new Date(0);
+      }
+    });
+};
+
+(async (): Promise<void> => {
+  await getAuth();
+  let startPageToken = (await google.drive('v3').changes.getStartPageToken())
+    .data.startPageToken;
+
+  setInterval(async () => {
+    google.drive('v3').files;
+    await getAuth();
+    const { data } = await google.drive('v3').changes.list({
+      pageToken: startPageToken,
+    });
+
+    startPageToken = data.newStartPageToken;
+
+    invalidate(
+      data.changes.reduce((a, c) => {
+        a[c.fileId] = c.file as any;
+        return a;
+      }, {} as any),
+    );
+  }, 15000);
+})();
