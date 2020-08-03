@@ -2,6 +2,6 @@ FROM node:alpine
 
 RUN yarn
 
-RUN yard build
+RUN yarn build
 
 CMD ["node build/src/main.js"]
